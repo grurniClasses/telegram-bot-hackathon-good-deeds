@@ -1,0 +1,19 @@
+/bot_settings.py
+
+*.pyc
+*.bak
+*.log
+~*
+
+venv
+
+Thumbs.db
+.DS_Store
+
+.idea/
+.vscode/
+.history/
+
+# Generally the lock file should be added, but this will save you pain in the Hackathon:
+poetry.lock
+
