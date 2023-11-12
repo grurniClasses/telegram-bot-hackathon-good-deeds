@@ -1,9 +1,10 @@
 # 🚧 YOUR BOT NAME HERE
 
 ## The Team
-- 🚧 Participant 1 Name
-- 🚧 Participant 2 Name
-- 🚧 Participant 3 Name
+- 🚧 Participant 1 Christina Beletskaya
+- 🚧 Participant 2 Tal Matsil
+- 🚧 Participant 3 Haya Mushka
+- 🚧 Participant 4 Shahd Mansour
 
 ## About this bot
 
