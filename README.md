@@ -8,7 +8,7 @@
 
 ## About this bot
 
-🚧 ENTER DESCRIPTION HERE
+🚧 The Good Deeds bot is a digital platform designed to enable acts of kindness and support within communities.
 
 🚧 YOU CAN ADD A t.me LINK TO THE BOT HERE
 
