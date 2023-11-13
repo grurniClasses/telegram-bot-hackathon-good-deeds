@@ -8,10 +8,11 @@ class DataBase:
         self._users_collection = self._db.get_collection(users_collection)
         self._requests_collection = self._db.get_collection(requests_collection)
 
-    def upsert_user_info(self, user_id: int, name: str, location: str, volunteer_status: bool = False):
+    def upsert_user_info(self, user_id: int, username: str, name: str, location: str, volunteer_status: bool = False):
         """update or insert user to database"""
         user_data = {
             'id_user': user_id,
+            "username": username,
             'name': name,
             'location': location,
             'volunteer_status': volunteer_status
@@ -35,11 +36,11 @@ class DataBase:
         """updates user's status to True/False thar will impact the distribution"""
         self._users_collection.update_one({'id_user': user_id}, {'$set': {'volunteer_status': status}})
 
-    def add_request(self, user_id: int, date, text: str, location: str):
+    def add_request(self, user_id: int, text: str, location: str):
         """add new request to request_collection"""
         request_data = {
             'user_id': user_id,
-            'date': date,
+            'date': datetime.now(),
             'text': text,
             'location': location,
             'status': True
@@ -71,8 +72,6 @@ class DataBase:
         }
 
         self._requests_collection.update_many(filter_criteria, update_operation)
-
-
 
     # def add_user_rank(self, user_id):
     #     pass
