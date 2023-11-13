@@ -1,9 +1,9 @@
-# 🚧 YOUR BOT NAME HERE
+# 🚧 THE GOOD DEEDS
 
 ## The Team
 - 🚧 Participant 1 Christina Beletskaya
 - 🚧 Participant 2 Tal Matsil
-- 🚧 Participant 3 Haya Mushka
+- 🚧 Participant 3 Haya Amir
 - 🚧 Participant 4 Shahd Mansour
 
 ## About this bot
