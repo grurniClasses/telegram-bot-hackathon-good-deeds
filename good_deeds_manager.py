@@ -14,9 +14,8 @@ class GoodDeedsManager:
     def change_old_requests_status(self, context):
         # Perform the desired operation
         self.database.change_requests_status_from_new_to_old()
+    def setup(self):
+        pass
 
-    """
-    def stop_scheduler(self):
-        # Stop the scheduler when needed
-        self.telebot.updater.stop()
-    """
+    def run(self):
+        pass
