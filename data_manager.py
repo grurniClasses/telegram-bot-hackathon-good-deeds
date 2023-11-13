@@ -37,10 +37,11 @@ class DataBase:
         new_status = not (self._users_collection.find_one({'id_user': user_id}).get("status"))  # Toggle the status (True to False, False to True)
         self._users_collection.update_one({'id_user': user_id}, {'$set': {'volunteer_status': new_status}})
 
-    def add_request(self, user_id: int, text: str, location: str):
+    def add_request(self, user_id: int, username: str, text: str, location: str):
         """add new request to request_collection"""
         request_data = {
             'user_id': user_id,
+            "username": username,
             'date': datetime.now(),
             'text': text,
             'location': location,

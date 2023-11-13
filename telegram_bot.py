@@ -139,22 +139,29 @@ class MyBot:
         user_id = update.message.from_user.id
         query.answer()
         choice = query.data
+        user_id = update.callback_query.from_user.id
 
         if choice == "main_1":
             # open help request
             query.edit_message_text(HELP_REQUEST_MSG)
             return 4
-        if choice == "2":
-            pass
-        if choice == "3":
-            pass
-        if choice == "main_4":
-            lst_help_requests_by_user_location = self.database.get_local_requests_by_user_location()
-            for request in lst_help_requests_by_user_location:
+        if choice == "main_2":
+            requests = self.database.get_user_requests(user_id)
+            for req in requests:
+                context.bot.send_message(chat_id=user_id, text=f"{req.get('text')}")
+        if choice == "main_3":
+            requests = self.database.get_all_requests()
+            for req in requests:
                 context.bot.send_message(chat_id=user_id,
-                                         text=f"@{request.get('user_name')} צריך עזרה ל: \n{request.get('request_text')}")
+                                         text=f"@{req.get('username')} צריך עזרה ל: \nlocation: {req.get('location')} \n{req.get('text')}")
+        if choice == "main_4":
+            lst_help_requests_by_user_location = self.database.get_local_requests_by_user_location(user_id)
+            for request in lst_help_requests_by_user_location:
+                context.bot.send_message(chat_id=user_id, text=f"@{request.get('username')} צריך עזרה ל: \n{request.get('text')}")
         if choice == "main_5":
             self.database.update_volunteer_status(user_id)
+
+        return ConversationHandler.END
 
     @staticmethod
     def get_location_keyboard():
