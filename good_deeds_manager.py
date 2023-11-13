@@ -7,4 +7,8 @@ class GoodDeedsManager:
         # get all requests, check date, deactivate request
         pass
 
+    def setup(self):
+        pass
 
+    def run(self):
+        pass

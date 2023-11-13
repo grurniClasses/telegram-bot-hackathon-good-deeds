@@ -1,8 +1,8 @@
 import logging
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram import Update
-from telegram.ext import Updater, CallbackContext
+from telegram.ext import Updater, CallbackContext, ConversationHandler
 
 from data_manager import DataBase      # ?? for typing
 
@@ -18,6 +18,7 @@ VOLUNTEER_MSG = ("תודה שבחרת להיות מגדלור של חסד בקה
                  "להשפיע על העולם שלנו ולהפוך אותו למקום טוב יותר.")
 HELP_REQUEST_MSG = "ספרו לנו  כיצד נוכל לסייע לכם היום כדי שקהילת המתנדבים שלנו תוכל להירתם ולעזור"
 CONFIRM_REQUEST_MSG = "האם לשנות את נוסח הבקשה?:\n\n{}"
+START_MENU_MSG = "Chose: "
 
 logging.basicConfig(
     format="[%(levelname)s %(asctime)s %(module)s:%(lineno)d] %(message)s",
@@ -37,7 +38,7 @@ class MyBot:
         user_id = update.message.from_user.id
         chat_id = update.effective_chat.id
         context.user_data['user_id'] = user_id
-        update.message.reply_text(HELLO_MSG)
+        update.message.reply_text(HELLO_MSG, reply_markup=ReplyKeyboardRemove())
         logger.info(f"> Start chat #{chat_id}")
         if not self.database.is_user(user_id):
             logger.info(f"> user exist: #{self.database.is_user(user_id)}")
@@ -45,7 +46,7 @@ class MyBot:
                                      text=DESCRIPTION)
             context.bot.send_message(chat_id=chat_id, text=ASK_NAME)
             return 1
-        return 1  # change to menu
+        return self.show_menu(update, context)
 
     def ask_name(self, update: Update, context: CallbackContext):
         chat_id = update.effective_chat.id
@@ -93,23 +94,51 @@ class MyBot:
         return 5
 
     def confirm_edit_request(self, update: Update, context: CallbackContext):
+        # user_id = update.message.from_user.id
+        user_id = update.callback_query.from_user.id
+        location = self.database.get_user_data(user_id).get("location")
+        logger.info(location)
         query = update.callback_query
 
         query.answer()
         choice = query.data
 
         if choice == "confirm":
-            self.database.add_request(context.user_data["user_id"], date='some_date',
+
+            self.database.add_request(user_id, date='some_date',
                                       text=context.user_data['request_text'],
-                                      location=context.user_data['location'])
+                                      location=location)
             logger.info("help request confirmed and saved")
             query.edit_message_text("בקשתך התקבלה, תודה!")
+            return ConversationHandler.END
         elif choice == "edit":
             query.edit_message_text("נסחו מחדש את הבקשה:")
             return 4
 
     def show_menu(self, update: Update, context: CallbackContext):
-        pass
+        update.message.reply_text(START_MENU_MSG,
+                                  reply_markup=self.get_menu_keyboard())
+        return 6
+
+    def chose_menu(self, update: Update, context: CallbackContext):
+        query = update.callback_query
+        logger.info(f"entered chose menu, {query=}")
+
+        query.answer()
+        choice = query.data
+
+        if choice == "main_1":
+            # open help request
+            query.edit_message_text(HELP_REQUEST_MSG)
+            return 4
+        if choice == "2":
+            pass
+        if choice == "3":
+            pass
+        if choice == "4":
+            pass
+        if choice == "5":
+            pass
 
     @staticmethod
     def get_location_keyboard():
@@ -139,12 +168,12 @@ class MyBot:
     @staticmethod
     def get_menu_keyboard():
         return InlineKeyboardMarkup([[
-            InlineKeyboardButton("פתח בקשת עזרה", callback_data="1"),
-            InlineKeyboardButton("הצג את בקשות העזרה שלי", callback_data="2"),
+            InlineKeyboardButton("פתח בקשת עזרה", callback_data="main_1"),
+            InlineKeyboardButton("הצג את בקשות העזרה שלי", callback_data="main_2"),
         ],
             [
-                InlineKeyboardButton("הצג את כל בקשות העזרה", callback_data="3"),
-                InlineKeyboardButton("הצג בקשות עזרה במיקום שלי", callback_data="4"),
+                InlineKeyboardButton("הצג את כל בקשות העזרה", callback_data="main_3"),
+                InlineKeyboardButton("הצג בקשות עזרה במיקום שלי", callback_data="main_4"),
             ],
-            [InlineKeyboardButton("שנה סטטוס מתנדב", callback_data="5")]
+            [InlineKeyboardButton("שנה סטטוס מתנדב", callback_data="main_5")]
         ])
