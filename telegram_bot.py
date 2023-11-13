@@ -8,20 +8,37 @@ from data_manager import DataBase  # ?? for typing
 
 HELLO_MSG = "💐תודה שבחרת להפיץ אור ולהפוך את העולם למקום טוב יותר"
 DESCRIPTION = (
-    "ברוכים הבאים לבוט המעשים הטובים!\n אז איך הבוט שלנו פועל: ניתן להיכנס כמתנדבים, שם תקבלו הודעות על בקשות "
-    "מקומיות לעזרה.\n לחילופין, אם אתם צריכים סיוע, אתם יכולים לפרסם בקשה שתגיע לצוות "
-    "המתנדבים המסור שלנו שמוכן להשפיע לטובה.\n בין אם אתם כאן כדי לתת יד או מחפשים סיוע, מעשים טובים היא "
+    "ברוכים הבאים לבוט המעשים הטובים!\nאז איך הבוט שלנו עובד: ניתן להיכנס כמתנדבים ולקבל הודעות על בקשות "
+    "מקומיות לעזרה.\nלחילופין, אם אתם צריכים סיוע, אתם יכולים לפרסם בקשה שתגיע לצוות "
+    "המתנדבים המסור שלנו.\n בין אם אתם כאן כדי לתת יד או שאתם מחפשים סיוע, מעשים טובים היא "
     "הפלטפורמה שלכם לטיפוח חסד קהילתי.")
 ASK_NAME = "מהו שמך?✏"
-ASK_LOCATION = "נעים להכיר אותך {},\nמהו מיקומך?"
+ASK_LOCATION = " {}, נעים להכיר אותך,\nמהו מיקומך?"
 USER_TYPE = "להושיט יד או לחפש תמיכה, הבחירה לגמרי בידך - מעשים טובים כאן עבור כולם"
 VOLUNTEER_MSG = ("תודה שבחרת להיות מגדלור של חסד בקהילה שלנו! ההחלטה שלך להתנדב מעידה רבות על החמלה והנכונות שלך "
-                 "להשפיע על העולם שלנו ולהפוך אותו למקום טוב יותר.")
+                 "להשפיע על העולם ולהפוך אותו למקום טוב יותר.✨")
 HELP_REQUEST_MSG = "איך המתנדבים שלנו יוכלו לסייע לך היום?"
-CONFIRM_REQUEST_MSG = "האם לשנות את נוסח הבקשה?:\n\n{}"
-CONFIRMED_REQUEST_MSG = ("הבקשה התקבלה ונשלחת ברגעים אלו לצוות המתנדבים המסורים שלנו, מתנדב מאזורך שיוכל לעזור יצור "
+CONFIRM_REQUEST_MSG = "האם לאשר את נוסח הבקשה?:\n\n{}"
+CONFIRMED_REQUEST_MSG = ("הבקשה התקבלה ונשלחת ברגעים אלו לצוות המתנדבים המסור שלנו, מתנדב מאזורך שיוכל לעזור יצור "
                          "איתך קשר בהקדם, תודה!")
-START_MENU_MSG = "Chose: "
+START_MENU_MSG = "תפריט ראשי"
+LOCATION_SELECT = "בחרת באזור: {}"
+REQUEST_HELP_MSG = "התקבלה בקשה חדשה: @{} מהמשתמש {}\nלחץ על שם המשתמש כדי ליצור קשר עם מבקש הבקשה"
+EDIT_MSG = "נסחו מחדש את הבקשה✍"
+CENTER = "מרכז"
+SOUTH = "דרום"
+NORTH = "צפון"
+TO_VOLUNTEER = "להתנדב"
+TO_HELP_REQUEST = "לבקש סיוע"
+EDIT = "עריכה"
+CONFIRM = "אישור"
+OPEN_REQUEST_BY_LOCATION = "בקשות עזרה במיקומך"
+ALL_REQUEST = "הצגת כל הבקשות"
+NEW_REQUEST = "בקשת עזרה"
+CHANGE_STATUS = "שינוי סטטוס התנדבות"
+MY_REQUEST = "בקשות העזרה שלי"
+
+
 
 logging.basicConfig(
     format="[%(levelname)s %(asctime)s %(module)s:%(lineno)d] %(message)s",
@@ -66,7 +83,7 @@ class MyBot:
         location = query.data
         query.answer()
         context.user_data['location'] = location
-        query.edit_message_text(f"בחרת {location}")
+        query.edit_message_text(LOCATION_SELECT.format(location))
         chat_id = update.effective_chat.id
         context.bot.send_message(chat_id=chat_id,
                                  text=USER_TYPE, reply_markup=self.get_volunteer_request_keyboard())
@@ -74,7 +91,7 @@ class MyBot:
 
     def volunteer_request(self, update: Update, context: CallbackContext):
         query = update.callback_query
-        logger.info(f"chose  {query.data}")
+        logger.info(f"chose: {query.data}")
         query.answer()
         volunteer_ans = query.data
         query.edit_message_text(f"בחרת {volunteer_ans}")
@@ -120,11 +137,12 @@ class MyBot:
             query.edit_message_text(CONFIRMED_REQUEST_MSG)
             for active_volunteer in self.database.get_all_active_volunteers():
                 context.bot.send_message(chat_id=active_volunteer.get("id_user"),
-                                         text=f"@{user_name} צריך עזרה ל: \n{context.user_data['request_text']}")
+                                         text=REQUEST_HELP_MSG.format(user_name, context.user_data['request_text']))
                 # context.bot.send_contact(chat_id=active_volunteer.get("user_id"), )
             return ConversationHandler.END
+
         elif choice == "edit":
-            query.edit_message_text("נסחו מחדש את הבקשה:")
+            query.edit_message_text(EDIT_MSG)
             return 4
 
     def show_menu(self, update: Update, context: CallbackContext):
@@ -156,36 +174,36 @@ class MyBot:
     def get_location_keyboard():
         keyboard = [
             [
-                InlineKeyboardButton("דרום", callback_data="south"),
-                InlineKeyboardButton("מרכז", callback_data="center"),
+                InlineKeyboardButton(SOUTH, callback_data=SOUTH),
+                InlineKeyboardButton(CENTER, callback_data=CENTER),
             ],
-            [InlineKeyboardButton("צפון", callback_data="north")],
+            [InlineKeyboardButton(NORTH, callback_data=NORTH)],
         ]
         return InlineKeyboardMarkup(keyboard)
 
     @staticmethod
     def get_volunteer_request_keyboard():
         return InlineKeyboardMarkup([[
-            InlineKeyboardButton("להתנדב", callback_data="volunteer"),
-            InlineKeyboardButton("לחפש סיוע", callback_data="help_request"),
+            InlineKeyboardButton(TO_VOLUNTEER, callback_data="volunteer"),
+            InlineKeyboardButton(TO_HELP_REQUEST, callback_data="help_request"),
         ]])
 
     @staticmethod
     def get_confirm_edit_keyboard():
         return InlineKeyboardMarkup([[
-            InlineKeyboardButton("עריכה", callback_data="edit"),
-            InlineKeyboardButton("אישור", callback_data="confirm"),
+            InlineKeyboardButton(EDIT, callback_data="edit"),
+            InlineKeyboardButton(CONFIRM, callback_data="confirm"),
         ]])
 
     @staticmethod
     def get_menu_keyboard():
         return InlineKeyboardMarkup([[
-            InlineKeyboardButton("פתח בקשת עזרה", callback_data="main_1"),
-            InlineKeyboardButton("הצג את בקשות העזרה שלי", callback_data="main_2"),
+            InlineKeyboardButton(NEW_REQUEST, callback_data="main_1"),
+            InlineKeyboardButton(MY_REQUEST, callback_data="main_2"),
         ],
             [
-                InlineKeyboardButton("הצג את כל בקשות העזרה", callback_data="main_3"),
-                InlineKeyboardButton("הצג בקשות עזרה במיקום שלי", callback_data="main_4"),
+                InlineKeyboardButton(ALL_REQUEST, callback_data="main_3"),
+                InlineKeyboardButton(OPEN_REQUEST_BY_LOCATION, callback_data="main_4"),
             ],
-            [InlineKeyboardButton("שנה סטטוס מתנדב", callback_data="main_5")]
+            [InlineKeyboardButton(CHANGE_STATUS, callback_data="main_5")]
         ])
