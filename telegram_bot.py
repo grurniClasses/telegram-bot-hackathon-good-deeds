@@ -85,7 +85,7 @@ class MyBot:
         logger.info("user added to database")
 
         if volunteer_ans == "volunteer":
-            self.database.update_volunteer_status(context.user_data['user_id'], True)
+            self.database.update_volunteer_status(context.user_data['user_id'])
             query.edit_message_text(VOLUNTEER_MSG)
             return ConversationHandler.END
 
@@ -138,19 +138,26 @@ class MyBot:
 
         query.answer()
         choice = query.data
+        user_id = update.callback_query.from_user.id
 
         if choice == "main_1":
             # open help request
             query.edit_message_text(HELP_REQUEST_MSG)
             return 4
-        if choice == "2":
+        if choice == "main_2":
+            requests = self.database.get_user_requests(user_id)
+            for req in requests:
+                context.bot.send_message(chat_id=user_id, text=f"{req.get('text')}")
+        if choice == "main_3":
+            requests = self.database.get_all_requests()
+            for req in requests:
+                context.bot.send_message(chat_id=user_id,
+                                         text=f"@{req.get('username')} צריך עזרה ל: \nlocation: {req.get('location')} \n{req.get('text')}")
+        if choice == "main_4":
             pass
-        if choice == "3":
+        if choice == "main_5":
             pass
-        if choice == "4":
-            pass
-        if choice == "5":
-            pass
+        return ConversationHandler.END
 
     @staticmethod
     def get_location_keyboard():

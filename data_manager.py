@@ -36,10 +36,11 @@ class DataBase:
         """updates user's status to True/False thar will impact the distribution"""
         self._users_collection.update_one({'id_user': user_id}, {'$set': {'volunteer_status': status}})
 
-    def add_request(self, user_id: int, text: str, location: str):
+    def add_request(self, user_id: int, username: str, text: str, location: str):
         """add new request to request_collection"""
         request_data = {
             'user_id': user_id,
+            "username": username,
             'date': datetime.now(),
             'text': text,
             'location': location,
