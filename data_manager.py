@@ -8,7 +8,7 @@ class DataBase:
         self._users_collection = self._db.get_collection(users_collection)
         self._requests_collection = self._db.get_collection(requests_collection)
 
-    def upsert_user_info(self, user_id: int, username: str, name: str, location: str, volunteer_status: bool = False):
+    def upsert_user_info(self, user_id: int, username: str, name: str, location: str, volunteer_status=False):
         """update or insert user to database"""
         user_data = {
             'id_user': user_id,
@@ -20,12 +20,15 @@ class DataBase:
         self._users_collection.update_one({'id_user': user_id}, {'$set': user_data}, upsert=True)
 
     def is_user(self, user_id):
+        """checks if user is in db"""
         return bool(self._users_collection.find_one({'id_user': user_id}))
 
     def is_active_user(self, user_id):
+        """checks if user is a volunteer"""
         return self._users_collection.find_one({'id_user': user_id}).get("volunteer_status")
 
     def get_user_data(self, user_id):
+        """:returns: user data from db"""
         return self._users_collection.find_one({'id_user': user_id})
 
     def get_user_requests(self, user_id):
@@ -34,7 +37,7 @@ class DataBase:
 
     def update_volunteer_status(self, user_id: int):
         """updates user's status to True/False thar will impact the distribution"""
-        new_status = not (self._users_collection.find_one({'id_user': user_id}).get("status"))  # Toggle the status (True to False, False to True)
+        new_status = not (self._users_collection.find_one({'id_user': user_id}).get("volunteer_status"))  # Toggle the status (True to False, False to True)
         self._users_collection.update_one({'id_user': user_id}, {'$set': {'volunteer_status': new_status}})
 
     def add_request(self, user_id: int, username: str, text: str, location: str):
@@ -67,6 +70,7 @@ class DataBase:
         return self.get_local_requests(location)
 
     def change_requests_status_from_new_to_old(self):
+        """change status of request to False after 24 hours"""
         # Define the filter criteria
         filter_criteria = {
             'status': True,
@@ -80,10 +84,7 @@ class DataBase:
 
         self._requests_collection.update_many(filter_criteria, update_operation)
 
-    # def add_user_rank(self, user_id):
-    #     pass
-    # if user helped more than ~5 times - add a star ⭐️ to name
-
     def get_all_active_volunteers(self):
+        """return list of users that are volunteers"""
         return [user for user in self._users_collection.find() if self.is_active_user(user.get("id_user"))]
 

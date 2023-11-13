@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from data_manager import DataBase
 
+
 class GoodDeedsManager:
     def __init__(self, telebot, database):
         self.telebot = telebot
@@ -14,6 +15,7 @@ class GoodDeedsManager:
     def change_old_requests_status(self, context):
         # Perform the desired operation
         self.database.change_requests_status_from_new_to_old()
+
     def setup(self):
         pass
 

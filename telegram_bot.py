@@ -6,6 +6,7 @@ from telegram.ext import Updater, CallbackContext, ConversationHandler
 
 from data_manager import DataBase  # ?? for typing
 
+ERROR_USERNAME = "לפני שנתחיל, כדי להשתמש בבוט צריך להזין שם משתמש בהגדרות הטלגרם"
 HELLO_MSG = "💐תודה שבחרת להפיץ אור ולהפוך את העולם למקום טוב יותר"
 DESCRIPTION = (
     "ברוכים הבאים לבוט המעשים הטובים!\nאז איך הבוט שלנו עובד: ניתן להיכנס כמתנדבים ולקבל הודעות על בקשות "
@@ -21,9 +22,10 @@ HELP_REQUEST_MSG = "איך המתנדבים שלנו יוכלו לסייע לך 
 CONFIRM_REQUEST_MSG = "האם לאשר את נוסח הבקשה?:\n\n{}"
 CONFIRMED_REQUEST_MSG = ("הבקשה התקבלה ונשלחת ברגעים אלו לצוות המתנדבים המסור שלנו, מתנדב מאזורך שיוכל לעזור יצור "
                          "איתך קשר בהקדם, תודה!")
+FULL_REQUEST_MSG = "התקבלה בקשת עזרה מאת: @{} באזור {}ֿ\n{}"
 START_MENU_MSG = "תפריט ראשי"
 LOCATION_SELECT = "בחרת באזור: {}"
-REQUEST_HELP_MSG = "התקבלה בקשה חדשה: @{} מהמשתמש {}\nלחץ על שם המשתמש כדי ליצור קשר עם מבקש הבקשה"
+REQUEST_HELP_MSG = "התקבלה בקשה חדשה מהמשתמש  @{} \n {} \n\n לחץ על שם המשתמש כדי ליצור קשר עם מבקש הבקשה"
 EDIT_MSG = "נסחו מחדש את הבקשה✍"
 CENTER = "מרכז"
 SOUTH = "דרום"
@@ -37,7 +39,10 @@ ALL_REQUEST = "הצגת כל הבקשות"
 NEW_REQUEST = "בקשת עזרה"
 CHANGE_STATUS = "שינוי סטטוס התנדבות"
 MY_REQUEST = "בקשות העזרה שלי"
-
+OPENED_REQUEST = "כל הבקשות הפתוחות: "
+OPENED_REQUEST_BY_LOCATION = "כל הבקשות הפתוחות באזור שלי: "
+ADDED_TO_VOLUNTEER_LIST = "הצטרפת לרשימת המתנדבים בהצלחה"
+REMOVED_FROM_VOLUNTEERS = "הוסרת בהצלחה מרשימת המתנדבים"
 
 
 logging.basicConfig(
@@ -55,20 +60,26 @@ class MyBot:
         self.database = database
 
     def start(self, update: Update, context: CallbackContext):
+        """checks if user have username, send welcome msg for new user"""
         user_id = update.message.from_user.id
-        context.user_data['user_id'] = user_id
-        update.message.reply_text(HELLO_MSG, reply_markup=ReplyKeyboardRemove())
         logger.info(f"> Start chat #{user_id}")
-        logger.info(f"> user exist: #{self.database.is_user(user_id)}")
-        if not self.database.is_user(user_id):
-            logger.info(f"> user exist: #{self.database.is_user(user_id)}")
+        context.user_data['user_id'] = user_id
+        if not update.message.from_user.username:
+            logger.info(f"user {user_id} has no username")
             context.bot.send_message(chat_id=user_id,
-                                     text=DESCRIPTION)
-            context.bot.send_message(chat_id=user_id, text=ASK_NAME)
-            return 1
-        return self.show_menu(update, context)
+                                     text=ERROR_USERNAME)
+        else:
+            update.message.reply_text(HELLO_MSG, reply_markup=ReplyKeyboardRemove())
+            logger.info(f"> user exist: #{self.database.is_user(user_id)}")
+            if not self.database.is_user(user_id):
+                context.bot.send_message(chat_id=user_id,
+                                         text=DESCRIPTION)
+                context.bot.send_message(chat_id=user_id, text=ASK_NAME)
+                return 1
+            return self.show_menu(update, context)
 
     def ask_name(self, update: Update, context: CallbackContext):
+        """ask user's name -> shows location keyboard"""
         chat_id = update.effective_chat.id
         name = update.message.text
         logger.info(f"> ask name, chat #{chat_id}, {name=}")
@@ -78,6 +89,7 @@ class MyBot:
         return 2
 
     def choose_location(self, update: Update, context: CallbackContext):
+        """saves user's location -> ask kind of activity with keyboard"""
         query = update.callback_query
         logger.info(f"Got location {query.data}")
         location = query.data
@@ -90,20 +102,22 @@ class MyBot:
         return 3
 
     def volunteer_request(self, update: Update, context: CallbackContext):
+        """saves user's info to db -> send explanation msg or ask to fill in help request"""
         query = update.callback_query
         logger.info(f"chose: {query.data}")
         query.answer()
         volunteer_ans = query.data
-        query.edit_message_text(f"בחרת {volunteer_ans}")
         username = update.effective_chat.username
+        user_id = update.effective_chat.id
         context.user_data["username"] = username
-        self.database.upsert_user_info(context.user_data['user_id'], username, context.user_data['name'],
+        self.database.upsert_user_info(user_id, username, context.user_data['name'],
                                        context.user_data['location'])
         logger.info("user added to database")
 
         if volunteer_ans == "volunteer":
             self.database.update_volunteer_status(context.user_data['user_id'])
-            query.edit_message_text(VOLUNTEER_MSG)
+            if self.database.is_active_user(context.user_data['user_id']):
+                query.edit_message_text(VOLUNTEER_MSG)
             return ConversationHandler.END
 
         elif volunteer_ans == "help_request":
@@ -111,34 +125,33 @@ class MyBot:
             return 4
 
     def describe_request(self, update: Update, context: CallbackContext):
+        """checks for correctness of request text"""
         context.user_data['request_text'] = update.message.text
         update.message.reply_text(CONFIRM_REQUEST_MSG.format(context.user_data['request_text']),
                                   reply_markup=self.get_confirm_edit_keyboard())
         return 5
 
     def confirm_edit_request(self, update: Update, context: CallbackContext):
+        """saves a help request to db"""
         user_id = update.callback_query.from_user.id
         location = self.database.get_user_data(user_id).get("location")
         logger.info(location)
         user_name = self.database.get_user_data(user_id).get("username")
-        chat_id = update.effective_chat.id
 
         query = update.callback_query
-
         query.answer()
         choice = query.data
 
         if choice == "confirm":
-
-            self.database.add_request(user_id,
+            self.database.add_request(user_id, user_name,
                                       text=context.user_data['request_text'],
                                       location=location)
             logger.info("help request confirmed and saved")
             query.edit_message_text(CONFIRMED_REQUEST_MSG)
             for active_volunteer in self.database.get_all_active_volunteers():
-                context.bot.send_message(chat_id=active_volunteer.get("id_user"),
-                                         text=REQUEST_HELP_MSG.format(user_name, context.user_data['request_text']))
-                # context.bot.send_contact(chat_id=active_volunteer.get("user_id"), )
+                if active_volunteer.get("id_user") != user_id:
+                    context.bot.send_message(chat_id=active_volunteer.get("id_user"),
+                                             text=REQUEST_HELP_MSG.format(user_name, context.user_data['request_text']))
             return ConversationHandler.END
 
         elif choice == "edit":
@@ -146,43 +159,71 @@ class MyBot:
             return 4
 
     def show_menu(self, update: Update, context: CallbackContext):
-        update.message.reply_text(START_MENU_MSG,
-                                  reply_markup=self.get_menu_keyboard())
-        return 6
+        """shows a menu keyboard for authorized users"""
+        user_id = update.message.from_user.id
+        if not update.message.from_user.username:
+            logger.info(f"user {user_id} has no username")
+            context.bot.send_message(chat_id=user_id,
+                                     text=ERROR_USERNAME)
+        else:
+            if not self.database.is_user(user_id):
+                logger.info(f"> user exist: #{self.database.is_user(user_id)}")
+                context.bot.send_message(chat_id=user_id,
+                                         text=DESCRIPTION)
+                context.bot.send_message(chat_id=user_id, text=ASK_NAME)
+                return 1
+            else:
+                update.message.reply_text(START_MENU_MSG,
+                                          reply_markup=self.get_menu_keyboard())
+                return 6
 
     def chose_menu(self, update: Update, context: CallbackContext):
+        """call for clicked button's func"""
         query = update.callback_query
-        logger.info(f"entered chose menu, {query=}")
-
-        user_id = update.message.from_user.id
         query.answer()
         choice = query.data
         user_id = update.callback_query.from_user.id
+        logger.info(f"entered chose menu, {choice=}")
 
         if choice == "main_1":
             # open help request
             query.edit_message_text(HELP_REQUEST_MSG)
             return 4
         if choice == "main_2":
+            query.edit_message_text(MY_REQUEST)
             requests = self.database.get_user_requests(user_id)
             for req in requests:
                 context.bot.send_message(chat_id=user_id, text=f"{req.get('text')}")
+            return ConversationHandler.END
         if choice == "main_3":
+            query.edit_message_text(OPENED_REQUEST)
             requests = self.database.get_all_requests()
             for req in requests:
-                context.bot.send_message(chat_id=user_id,
-                                         text=f"@{req.get('username')} צריך עזרה ל: \nlocation: {req.get('location')} \n{req.get('text')}")
+                if req.get("user_id") != user_id:
+                    context.bot.send_message(chat_id=user_id,
+                                             text=FULL_REQUEST_MSG.format(req.get('username'), req.get('location'),
+                                                                          req.get('text')))
+            return ConversationHandler.END
         if choice == "main_4":
+            query.edit_message_text(OPENED_REQUEST_BY_LOCATION)
             lst_help_requests_by_user_location = self.database.get_local_requests_by_user_location(user_id)
             for request in lst_help_requests_by_user_location:
-                context.bot.send_message(chat_id=user_id, text=f"@{request.get('username')} צריך עזרה ל: \n{request.get('text')}")
+                if request.get("user_id") != user_id:
+                    context.bot.send_message(chat_id=user_id,
+                                             text=REQUEST_HELP_MSG.format(request.get('username'), request.get('text')))
+            return ConversationHandler.END
         if choice == "main_5":
             self.database.update_volunteer_status(user_id)
+            if self.database.is_active_user(user_id):
+                query.edit_message_text(ADDED_TO_VOLUNTEER_LIST)
+            else:
+                query.edit_message_text(REMOVED_FROM_VOLUNTEERS)
 
         return ConversationHandler.END
 
     @staticmethod
     def get_location_keyboard():
+        """creates keyboard for choosing location"""
         keyboard = [
             [
                 InlineKeyboardButton(SOUTH, callback_data=SOUTH),
@@ -194,6 +235,7 @@ class MyBot:
 
     @staticmethod
     def get_volunteer_request_keyboard():
+        """creates keyboard for choosing kind of activity"""
         return InlineKeyboardMarkup([[
             InlineKeyboardButton(TO_VOLUNTEER, callback_data="volunteer"),
             InlineKeyboardButton(TO_HELP_REQUEST, callback_data="help_request"),
@@ -201,6 +243,7 @@ class MyBot:
 
     @staticmethod
     def get_confirm_edit_keyboard():
+        """creates keyboard for processing text of help request"""
         return InlineKeyboardMarkup([[
             InlineKeyboardButton(EDIT, callback_data="edit"),
             InlineKeyboardButton(CONFIRM, callback_data="confirm"),
@@ -208,6 +251,7 @@ class MyBot:
 
     @staticmethod
     def get_menu_keyboard():
+        """creates keyboard for main menu"""
         return InlineKeyboardMarkup([[
             InlineKeyboardButton(NEW_REQUEST, callback_data="main_1"),
             InlineKeyboardButton(MY_REQUEST, callback_data="main_2"),
