@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from datetime import datetime, timedelta
 
 
 class DataBase:
@@ -56,6 +57,22 @@ class DataBase:
     def get_local_requests(self, location):
         """:returns: all requests with active (True) status filtered by location"""
         return list(self._requests_collection.find({'status': True, 'location': location}))
+
+    def change__requests_status_from_new_to_old(self):
+        # Define the filter criteria
+        filter_criteria = {
+            'status': True,
+            'date': {'$lt': datetime.utcnow() - timedelta(hours=24)}
+        }
+
+        # Define the update operation
+        update_operation = {
+            '$set': {'status': False}
+        }
+
+        self._requests_collection.update_many(filter_criteria, update_operation)
+
+
 
     # def add_user_rank(self, user_id):
     #     pass

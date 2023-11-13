@@ -16,4 +16,5 @@ Thumbs.db
 
 # Generally the lock file should be added, but this will save you pain in the Hackathon:
 poetry.lock
+my_token.py
 

@@ -1,6 +1,6 @@
 import logging
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram import Update
 from telegram.ext import Updater, CallbackContext
 
@@ -37,7 +37,7 @@ class MyBot:
         user_id = update.message.from_user.id
         chat_id = update.effective_chat.id
         context.user_data['user_id'] = user_id
-        update.message.reply_text(HELLO_MSG)
+        update.message.reply_text(HELLO_MSG, reply_markup=ReplyKeyboardRemove())
         logger.info(f"> Start chat #{chat_id}")
         if not self.database.is_user(user_id):
             logger.info(f"> user exist: #{self.database.is_user(user_id)}")
