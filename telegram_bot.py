@@ -6,17 +6,17 @@ from telegram.ext import Updater, CallbackContext
 
 from data_manager import DataBase      # ?? for typing
 
-HELLO_MSG = "💐תודה שבחרתם להפיץ אור ולהפוך את העולם למקום טוב יותר"
-DESCRIPTION = ("ברוכים הבאים לבוט המעשים הטובים! אז איך הבוט שלנו פועל: ניתן להיכנס כמתנדבים, שם תקבלו הודעות על בקשות "
-               "מקומיות לעזרה. לחילופין, אם אתם צריכים סיוע, אתם יכולים לפרסם בקשה מסווגת לפי אזורכם, שתגיע לצוות "
-               "המתנדבים המסור שלנו שמוכן להשפיע לטובה. בין אם אתם כאן כדי לתת יד או מחפשים סיוע, מעשים טובים היא "
+HELLO_MSG = "💐תודה שבחרת להפיץ אור ולהפוך את העולם למקום טוב יותר"
+DESCRIPTION = ("ברוכים הבאים לבוט המעשים הטובים!\n אז איך הבוט שלנו פועל: ניתן להיכנס כמתנדבים, שם תקבלו הודעות על בקשות "
+               "מקומיות לעזרה.\n לחילופין, אם אתם צריכים סיוע, אתם יכולים לפרסם בקשה שתגיע לצוות "
+               "המתנדבים המסור שלנו שמוכן להשפיע לטובה.\n בין אם אתם כאן כדי לתת יד או מחפשים סיוע, מעשים טובים היא "
                "הפלטפורמה שלכם לטיפוח חסד קהילתי.")
 ASK_NAME = "מהו שמך?✏"
-ASK_LOCATION = "נעים להכיר אותך, {}\n כעת, מהו מיקומך?"
-USER_TYPE = "בחרו האם להושיט יד או לחפש תמיכה - מעשים טובים כאן עבור כולם"
+ASK_LOCATION = "נעים להכיר אותך {},\nמהו מיקומך?"
+USER_TYPE = "להושיט יד או לחפש תמיכה, הבחירה לגמרי בידך - מעשים טובים כאן עבור כולם"
 VOLUNTEER_MSG = ("תודה שבחרת להיות מגדלור של חסד בקהילה שלנו! ההחלטה שלך להתנדב מעידה רבות על החמלה והנכונות שלך "
                  "להשפיע על העולם שלנו ולהפוך אותו למקום טוב יותר.")
-HELP_REQUEST_MSG = "ספרו לנו  כיצד נוכל לסייע לכם היום כדי שקהילת המתנדבים שלנו תוכל להירתם ולעזור"
+HELP_REQUEST_MSG = "איך המתנדבים שלנו יוכלו לסייע לך היום?"
 CONFIRM_REQUEST_MSG = "האם לשנות את נוסח הבקשה?:\n\n{}"
 
 logging.basicConfig(
@@ -78,6 +78,7 @@ class MyBot:
                                        context.user_data['location'])
         logger.info("user added to database")
 
+
         if volunteer_ans == "volunteer":
             self.database.update_volunteer_status(context.user_data['user_id'], True)
             query.edit_message_text(VOLUNTEER_MSG)
@@ -93,6 +94,9 @@ class MyBot:
         return 5
 
     def confirm_edit_request(self, update: Update, context: CallbackContext):
+        user_name = context.user_data['name']
+        chat_id = update.effective_chat.id
+
         query = update.callback_query
 
         query.answer()
@@ -103,7 +107,10 @@ class MyBot:
                                       text=context.user_data['request_text'],
                                       location=context.user_data['location'])
             logger.info("help request confirmed and saved")
-            query.edit_message_text("בקשתך התקבלה, תודה!")
+            query.edit_message_text("הבקשה התקבלה ונשלחת ברגעים אלו לצוות המתנדבים המסורים שלנו, מתנדב מאזורך שיוכל לעזור יצור איתך קשר בהקדם, תודה!")
+            for active_volunteer in self.database.get_all_active_volunteers():
+                context.bot.send_message(chat_id=chat_id,  text=f"{user_name} צריך עזרה עם: {context.user_data['request_text']}")
+
         elif choice == "edit":
             query.edit_message_text("נסחו מחדש את הבקשה:")
             return 4
@@ -125,8 +132,8 @@ class MyBot:
     @staticmethod
     def get_volunteer_request_keyboard():
         return InlineKeyboardMarkup([[
-            InlineKeyboardButton("מתנדב", callback_data="volunteer"),
-            InlineKeyboardButton("מחפש סיוע", callback_data="help_request"),
+            InlineKeyboardButton("להתנדב", callback_data="volunteer"),
+            InlineKeyboardButton("לחפש סיוע", callback_data="help_request"),
         ]])
 
     @staticmethod
@@ -148,3 +155,7 @@ class MyBot:
             ],
             [InlineKeyboardButton("שנה סטטוס מתנדב", callback_data="5")]
         ])
+
+
+
+

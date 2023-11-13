@@ -77,3 +77,7 @@ class DataBase:
     # def add_user_rank(self, user_id):
     #     pass
     # if user helped more than ~5 times - add a star ⭐️ to name
+
+    def get_all_active_volunteers(self):
+        return [user for user in self._users_collection.find() if self.is_active_user(user.get("id_user"))]
+
