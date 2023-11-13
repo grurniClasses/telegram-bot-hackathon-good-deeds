@@ -32,9 +32,10 @@ class DataBase:
         """:returns: all requests that were written by user"""
         return list(self._requests_collection.find({'user_id': user_id}))
 
-    def update_volunteer_status(self, user_id: int, status: bool):
+    def update_volunteer_status(self, user_id: int):
         """updates user's status to True/False thar will impact the distribution"""
-        self._users_collection.update_one({'id_user': user_id}, {'$set': {'volunteer_status': status}})
+        new_status = not (self._users_collection.find_one({'id_user': user_id}).get("status"))  # Toggle the status (True to False, False to True)
+        self._users_collection.update_one({'id_user': user_id}, {'$set': {'volunteer_status': new_status}})
 
     def add_request(self, user_id: int, text: str, location: str):
         """add new request to request_collection"""
@@ -58,6 +59,11 @@ class DataBase:
     def get_local_requests(self, location):
         """:returns: all requests with active (True) status filtered by location"""
         return list(self._requests_collection.find({'status': True, 'location': location}))
+
+    def get_local_requests_by_user_location(self, user_id: int):
+        """:returns: all requests with active (True) status filtered by location"""
+        location = self._users_collection.find_one({'id_user': user_id}).get('location')
+        return self.get_local_requests(location)
 
     def change_requests_status_from_new_to_old(self):
         # Define the filter criteria
