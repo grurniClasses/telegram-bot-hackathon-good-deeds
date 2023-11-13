@@ -1,14 +1,14 @@
-# 🚧 YOUR BOT NAME HERE
+# 🚧 THE GOOD DEEDS
 
 ## The Team
 - 🚧 Participant 1 Christina Beletskaya
 - 🚧 Participant 2 Tal Matsil
-- 🚧 Participant 3 Haya Mushka
+- 🚧 Participant 3 Haya Amir
 - 🚧 Participant 4 Shahd Mansour
 
 ## About this bot
 
-🚧 ENTER DESCRIPTION HERE
+🚧 The Good Deeds bot is a digital platform designed to enable acts of kindness and support within communities.
 
 🚧 YOU CAN ADD A t.me LINK TO THE BOT HERE
 
