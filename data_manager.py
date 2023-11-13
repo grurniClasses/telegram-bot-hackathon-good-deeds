@@ -58,7 +58,7 @@ class DataBase:
         """:returns: all requests with active (True) status filtered by location"""
         return list(self._requests_collection.find({'status': True, 'location': location}))
 
-    def change__requests_status_from_new_to_old(self):
+    def change_requests_status_from_new_to_old(self):
         # Define the filter criteria
         filter_criteria = {
             'status': True,
