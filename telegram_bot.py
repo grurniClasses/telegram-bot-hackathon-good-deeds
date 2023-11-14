@@ -1,183 +1,214 @@
+import enum
 import logging
+from typing import Optional
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
-from telegram import Update
-from telegram.ext import Updater, CallbackContext, ConversationHandler
+import telegram
+from telegram.ext import (
+    CallbackContext,
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    Filters,
+    MessageHandler,
+    Updater,
+)
 
-from data_manager import DataBase  # ?? for typing
-
-ERROR_USERNAME = "לפני שנתחיל, כדי להשתמש בבוט צריך להזין שם משתמש בהגדרות הטלגרם"
-HELLO_MSG = "💐תודה שבחרת להפיץ אור ולהפוך את העולם למקום טוב יותר"
-DESCRIPTION = (
-    "ברוכים הבאים לבוט המעשים הטובים!\nאז איך הבוט שלנו עובד: ניתן להיכנס כמתנדבים ולקבל הודעות על בקשות "
-    "מקומיות לעזרה.\nלחילופין, אם אתם צריכים סיוע, אתם יכולים לפרסם בקשה שתגיע לצוות "
-    "המתנדבים המסור שלנו.\n בין אם אתם כאן כדי לתת יד או שאתם מחפשים סיוע, מעשים טובים היא "
-    "הפלטפורמה שלכם לטיפוח חסד קהילתי.")
-ASK_NAME = "מהו שמך?✏"
-ASK_LOCATION = " {}, נעים להכיר אותך,\nמהו מיקומך?"
-USER_TYPE = "להושיט יד או לחפש תמיכה, הבחירה לגמרי בידך - מעשים טובים כאן עבור כולם"
-VOLUNTEER_MSG = ("תודה שבחרת להיות מגדלור של חסד בקהילה שלנו! ההחלטה שלך להתנדב מעידה רבות על החמלה והנכונות שלך "
-                 "להשפיע על העולם ולהפוך אותו למקום טוב יותר.✨")
-HELP_REQUEST_MSG = "איך המתנדבים שלנו יוכלו לסייע לך היום?"
-CONFIRM_REQUEST_MSG = "האם לאשר את נוסח הבקשה?:\n\n{}"
-CONFIRMED_REQUEST_MSG = ("הבקשה התקבלה ונשלחת ברגעים אלו לצוות המתנדבים המסור שלנו, מתנדב מאזורך שיוכל לעזור יצור "
-                         "איתך קשר בהקדם, תודה!")
-FULL_REQUEST_MSG = "התקבלה בקשת עזרה מאת: @{} באזור {}ֿ\n{}"
-START_MENU_MSG = "תפריט ראשי"
-LOCATION_SELECT = "בחרת באזור: {}"
-REQUEST_HELP_MSG = "התקבלה בקשה חדשה מהמשתמש  @{} \n {} \n\n לחץ על שם המשתמש כדי ליצור קשר עם מבקש הבקשה"
-EDIT_MSG = "נסחו מחדש את הבקשה✍"
-CENTER = "מרכז"
-SOUTH = "דרום"
-NORTH = "צפון"
-TO_VOLUNTEER = "להתנדב"
-TO_HELP_REQUEST = "לבקש סיוע"
-EDIT = "עריכה"
-CONFIRM = "אישור"
-OPEN_REQUEST_BY_LOCATION = "בקשות עזרה במיקומך"
-ALL_REQUEST = "הצגת כל הבקשות"
-NEW_REQUEST = "בקשת עזרה"
-CHANGE_STATUS = "שינוי סטטוס התנדבות"
-MY_REQUEST = "בקשות העזרה שלי"
-OPENED_REQUEST = "כל הבקשות הפתוחות: "
-OPENED_REQUEST_BY_LOCATION = "כל הבקשות הפתוחות באזור שלי: "
-ADDED_TO_VOLUNTEER_LIST = "הצטרפת לרשימת המתנדבים בהצלחה"
-REMOVED_FROM_VOLUNTEERS = "הוסרת בהצלחה מרשימת המתנדבים"
-
+import telegram_consts
+from data_manager import Database
 
 logging.basicConfig(
     format="[%(levelname)s %(asctime)s %(module)s:%(lineno)d] %(message)s",
     level=logging.INFO,
 )
-
 logger = logging.getLogger(__name__)
 
 
-class MyBot:
-    def __init__(self, token, database: DataBase):
-        self.updater = Updater(token, use_context=True)
-        self.dispatcher = self.updater.dispatcher
-        self.database = database
+class MenuOption(enum.Enum):
+    ASK_NAME = 1
+    CHOOSE_LOCATION = 2
+    VOLUNTEER_REQUEST = 3
+    DESCRIBE_REQUEST = 4
+    CONFIRM_EDIT_REQUEST = 5
+    CHOOSE_MENU = 6
 
-    def start(self, update: Update, context: CallbackContext):
+
+class MenuKeyboardOption(enum.Enum):
+    NEW_REQUEST = "MENU_OPTION__NEW_REQUEST"
+    MY_REQUEST = "MENU_OPTION__MY_REQUEST"
+    ALL_REQUEST = "MENU_OPTION__ALL_REQUEST"
+    OPEN_REQUEST_BY_LOCATION = "MENU_OPTION__OPEN_REQUEST_BY_LOCATION"
+    CHANGE_STATUS = "MENU_OPTION__CHANGE_STATUS"
+
+
+class VolunteerRequestOption(enum.Enum):
+    VOLUNTEER = "VOLUNTEER_REQUEST_OPTION__VOLUNTEER"
+    HELP_REQUEST = "VOLUNTEER_REQUEST_OPTION__HELP_REQUEST"
+
+
+class ConfirmOption(enum.Enum):
+    CONFIRM = "CONFIRM_OPTION__CONFIRM"
+    EDIT = "CONFIRM_OPTION__EDIT"
+
+
+class TelegramBot:
+    def __init__(self, token, database: Database):
+        self._database = database
+        self._updater = Updater(token, use_context=True)
+
+    def run(self):
+        self._updater.dispatcher.add_handler(ConversationHandler(
+            entry_points=[CommandHandler("start", self._start), CommandHandler("menu", self._show_menu)],
+            states={
+                MenuOption.ASK_NAME.value: [MessageHandler(Filters.text & ~Filters.command, self._ask_name)],
+                MenuOption.CHOOSE_LOCATION.value: [CallbackQueryHandler(self._choose_location)],
+                MenuOption.VOLUNTEER_REQUEST.value: [CallbackQueryHandler(self._volunteer_request)],
+                MenuOption.DESCRIBE_REQUEST.value: [
+                    MessageHandler(Filters.text & ~Filters.command, self._describe_request)],
+                MenuOption.CONFIRM_EDIT_REQUEST.value: [CallbackQueryHandler(self._confirm_edit_request)],
+                MenuOption.CHOOSE_MENU.value: [CallbackQueryHandler(self._choose_menu)]
+            },
+            fallbacks=[],
+        ))
+
+        self._updater.start_polling()
+        self._updater.idle()
+
+    def _start(self, update: telegram.Update, context: CallbackContext) -> Optional[int]:
         """checks if user have username, send welcome msg for new user"""
         user_id = update.message.from_user.id
         logger.info(f"> Start chat #{user_id}")
-        context.user_data['user_id'] = user_id
+        context.user_data["user_id"] = user_id
+        logger.info("fuck")
         if not update.message.from_user.username:
             logger.info(f"user {user_id} has no username")
-            context.bot.send_message(chat_id=user_id,
-                                     text=ERROR_USERNAME)
-        else:
-            update.message.reply_text(HELLO_MSG, reply_markup=ReplyKeyboardRemove())
-            logger.info(f"> user exist: #{self.database.is_user(user_id)}")
-            if not self.database.is_user(user_id):
-                context.bot.send_message(chat_id=user_id,
-                                         text=DESCRIPTION)
-                context.bot.send_message(chat_id=user_id, text=ASK_NAME)
-                return 1
-            return self.show_menu(update, context)
+            context.bot.send_message(user_id, telegram_consts.ERROR_USERNAME)
+            return
 
-    def ask_name(self, update: Update, context: CallbackContext):
+        update.message.reply_text(telegram_consts.HELLO_MSG, reply_markup=telegram.ReplyKeyboardRemove())
+
+        is_user_exists = self._database.is_user_exists(user_id)
+        logger.info(f"> user exist: #{is_user_exists}")
+        if not is_user_exists:
+            context.bot.send_message(user_id, telegram_consts.DESCRIPTION)
+            context.bot.send_message(user_id, telegram_consts.ASK_NAME)
+            return MenuOption.ASK_NAME.value
+
+        return self._show_menu(update, context)
+
+    def _ask_name(self, update: telegram.Update, context: CallbackContext) -> int:
         """ask user's name -> shows location keyboard"""
-        chat_id = update.effective_chat.id
         name = update.message.text
-        logger.info(f"> ask name, chat #{chat_id}, {name=}")
-        context.user_data['name'] = name
-        update.message.reply_text(ASK_LOCATION.format(name),
-                                  reply_markup=self.get_location_keyboard())
-        return 2
+        logger.info(f"> ask name, chat #{update.effective_chat.id}, {name=}")
+        context.user_data["name"] = name
+        update.message.reply_text(telegram_consts.ASK_LOCATION.format(name), reply_markup=self._get_location_keyboard())
+        return MenuOption.CHOOSE_LOCATION.value
 
-    def choose_location(self, update: Update, context: CallbackContext):
+    def _choose_location(self, update: telegram.Update, context: CallbackContext) -> int:
         """saves user's location -> ask kind of activity with keyboard"""
         query = update.callback_query
-        logger.info(f"Got location {query.data}")
         location = query.data
+        logger.info(f"Got location {location}")
         query.answer()
-        context.user_data['location'] = location
-        query.edit_message_text(LOCATION_SELECT.format(location))
+        context.user_data["location"] = location
+        query.edit_message_text(telegram_consts.LOCATION_SELECT.format(location))
         chat_id = update.effective_chat.id
-        context.bot.send_message(chat_id=chat_id,
-                                 text=USER_TYPE, reply_markup=self.get_volunteer_request_keyboard())
-        return 3
+        context.bot.send_message(chat_id, telegram_consts.USER_TYPE,
+                                 reply_markup=self._get_volunteer_request_keyboard())
+        return MenuOption.VOLUNTEER_REQUEST.value
 
-    def volunteer_request(self, update: Update, context: CallbackContext):
+    def _volunteer_request(
+            self,
+            update: telegram.Update,
+            context: CallbackContext,
+    ) -> int:
         """saves user's info to db -> send explanation msg or ask to fill in help request"""
-        query = update.callback_query
-        logger.info(f"chose: {query.data}")
-        query.answer()
-        volunteer_ans = query.data
         username = update.effective_chat.username
         user_id = update.effective_chat.id
         context.user_data["username"] = username
-        self.database.upsert_user_info(user_id, username, context.user_data['name'],
-                                       context.user_data['location'])
+        self._database.insert_user_info(user_id, username, context.user_data["name"], context.user_data["location"])
         logger.info("user added to database")
 
-        if volunteer_ans == "volunteer":
-            self.database.update_volunteer_status(context.user_data['user_id'])
-            if self.database.is_active_user(context.user_data['user_id']):
-                query.edit_message_text(VOLUNTEER_MSG)
+        query = update.callback_query
+        volunteer_ans = query.data
+        logger.info(f"chose: {volunteer_ans}")
+        query.answer()
+        if volunteer_ans == VolunteerRequestOption.VOLUNTEER.value:
+            self._database.update_volunteer_status(user_id)
+            if self._database.is_active_user(user_id):
+                query.edit_message_text(telegram_consts.VOLUNTEER_MSG)
             return ConversationHandler.END
 
-        elif volunteer_ans == "help_request":
-            query.edit_message_text(HELP_REQUEST_MSG)
-            return 4
+        query.edit_message_text(telegram_consts.HELP_REQUEST_MSG)
+        return MenuOption.DESCRIBE_REQUEST.value
 
-    def describe_request(self, update: Update, context: CallbackContext):
+    def _describe_request(self, update: telegram.Update, context: CallbackContext) -> int:
         """checks for correctness of request text"""
-        context.user_data['request_text'] = update.message.text
-        update.message.reply_text(CONFIRM_REQUEST_MSG.format(context.user_data['request_text']),
-                                  reply_markup=self.get_confirm_edit_keyboard())
-        return 5
+        context.user_data["request_text"] = update.message.text
+        update.message.reply_text(
+            telegram_consts.CONFIRM_REQUEST_MSG.format(context.user_data["request_text"]),
+            reply_markup=self._get_confirm_keyboard(),
+        )
+        return MenuOption.CONFIRM_EDIT_REQUEST.value
 
-    def confirm_edit_request(self, update: Update, context: CallbackContext):
+    def _confirm_edit_request(
+            self,
+            update: telegram.Update,
+            context: CallbackContext,
+    ) -> int:
         """saves a help request to db"""
         user_id = update.callback_query.from_user.id
-        location = self.database.get_user_data(user_id).get("location")
-        logger.info(location)
-        user_name = self.database.get_user_data(user_id).get("username")
+        user_data = self._database.get_user_data(user_id)
+        user_name = user_data.get("username")
 
         query = update.callback_query
         query.answer()
         choice = query.data
 
-        if choice == "confirm":
-            self.database.add_request(user_id, user_name,
-                                      text=context.user_data['request_text'],
-                                      location=location)
+        if choice == ConfirmOption.CONFIRM.value:
+            self._database.add_request(
+                user_id,
+                user_name,
+                text=context.user_data["request_text"],
+                location=user_data.get("location"),
+            )
             logger.info("help request confirmed and saved")
-            query.edit_message_text(CONFIRMED_REQUEST_MSG)
-            for active_volunteer in self.database.get_all_active_volunteers():
-                if active_volunteer.get("id_user") != user_id:
-                    context.bot.send_message(chat_id=active_volunteer.get("id_user"),
-                                             text=REQUEST_HELP_MSG.format(user_name, context.user_data['request_text']))
+            query.edit_message_text(telegram_consts.CONFIRMED_REQUEST_MSG)
+            for active_volunteer in self._database.get_all_active_volunteers():
+                logger.info(active_volunteer)
+                if active_volunteer.get("user_id") != user_id:
+                    context.bot.send_message(
+                        active_volunteer.get("user_id"),
+                        telegram_consts.REQUEST_HELP_MSG.format(user_name, context.user_data["request_text"]),
+                    )
             return ConversationHandler.END
 
-        elif choice == "edit":
-            query.edit_message_text(EDIT_MSG)
-            return 4
+        query.edit_message_text(telegram_consts.EDIT_MSG)
+        return MenuOption.DESCRIBE_REQUEST.value
 
-    def show_menu(self, update: Update, context: CallbackContext):
+    def _show_menu(self, update: telegram.Update, context: CallbackContext) -> Optional[int]:
         """shows a menu keyboard for authorized users"""
         user_id = update.message.from_user.id
         if not update.message.from_user.username:
             logger.info(f"user {user_id} has no username")
-            context.bot.send_message(chat_id=user_id,
-                                     text=ERROR_USERNAME)
-        else:
-            if not self.database.is_user(user_id):
-                logger.info(f"> user exist: #{self.database.is_user(user_id)}")
-                context.bot.send_message(chat_id=user_id,
-                                         text=DESCRIPTION)
-                context.bot.send_message(chat_id=user_id, text=ASK_NAME)
-                return 1
-            else:
-                update.message.reply_text(START_MENU_MSG,
-                                          reply_markup=self.get_menu_keyboard())
-                return 6
+            context.bot.send_message(user_id, telegram_consts.ERROR_USERNAME)
+            return
 
-    def chose_menu(self, update: Update, context: CallbackContext):
+        is_user_exists = self._database.is_user_exists(user_id)
+        logger.info(is_user_exists)
+        if not is_user_exists:
+            logger.info(f"> user exist: #{is_user_exists}")
+            context.bot.send_message(user_id, telegram_consts.DESCRIPTION)
+            context.bot.send_message(user_id, telegram_consts.ASK_NAME)
+            return MenuOption.ASK_NAME.value
+
+        update.message.reply_text(telegram_consts.START_MENU_MSG, reply_markup=self._get_menu_keyboard())
+        return MenuOption.CHOOSE_MENU.value
+
+    def _choose_menu(
+            self,
+            update: telegram.Update,
+            context: CallbackContext,
+    ) -> int:
         """call for clicked button's func"""
         query = update.callback_query
         query.answer()
@@ -185,80 +216,110 @@ class MyBot:
         user_id = update.callback_query.from_user.id
         logger.info(f"entered chose menu, {choice=}")
 
-        if choice == "main_1":
+        if choice == MenuKeyboardOption.NEW_REQUEST.value:
             # open help request
-            query.edit_message_text(HELP_REQUEST_MSG)
-            return 4
-        if choice == "main_2":
-            query.edit_message_text(MY_REQUEST)
-            requests = self.database.get_user_requests(user_id)
-            for req in requests:
-                context.bot.send_message(chat_id=user_id, text=f"{req.get('text')}")
+            query.edit_message_text(telegram_consts.HELP_REQUEST_MSG)
+            return MenuOption.DESCRIBE_REQUEST.value
+
+        if choice == MenuKeyboardOption.MY_REQUEST.value:
+            query.edit_message_text(telegram_consts.MY_REQUEST)
+            for req in self._database.get_user_requests(user_id):
+                context.bot.send_message(user_id, req.get("text"))
             return ConversationHandler.END
-        if choice == "main_3":
-            query.edit_message_text(OPENED_REQUEST)
-            requests = self.database.get_all_requests()
-            for req in requests:
+
+        if choice == MenuKeyboardOption.ALL_REQUEST.value:
+            query.edit_message_text(telegram_consts.OPENED_REQUEST)
+            for req in self._database.get_all_active_requests():
                 if req.get("user_id") != user_id:
-                    context.bot.send_message(chat_id=user_id,
-                                             text=FULL_REQUEST_MSG.format(req.get('username'), req.get('location'),
-                                                                          req.get('text')))
+                    context.bot.send_message(
+                        user_id,
+                        telegram_consts.FULL_REQUEST_MSG.format(
+                            req.get("username"),
+                            req.get("location"),
+                            req.get("text"),
+                        ),
+                    )
             return ConversationHandler.END
-        if choice == "main_4":
-            query.edit_message_text(OPENED_REQUEST_BY_LOCATION)
-            lst_help_requests_by_user_location = self.database.get_local_requests_by_user_location(user_id)
+
+        if choice == MenuKeyboardOption.OPEN_REQUEST_BY_LOCATION.value:
+            query.edit_message_text(telegram_consts.OPENED_REQUEST_BY_LOCATION)
+            lst_help_requests_by_user_location = self._database.get_local_requests_by_user_location(user_id)
             for request in lst_help_requests_by_user_location:
                 if request.get("user_id") != user_id:
-                    context.bot.send_message(chat_id=user_id,
-                                             text=REQUEST_HELP_MSG.format(request.get('username'), request.get('text')))
+                    context.bot.send_message(
+                        user_id,
+                        telegram_consts.REQUEST_HELP_MSG.format(request.get("username"), request.get("text")),
+                    )
             return ConversationHandler.END
-        if choice == "main_5":
-            self.database.update_volunteer_status(user_id)
-            if self.database.is_active_user(user_id):
-                query.edit_message_text(ADDED_TO_VOLUNTEER_LIST)
+
+        if choice == MenuKeyboardOption.CHANGE_STATUS.value:
+            self._database.update_volunteer_status(user_id)
+            if self._database.is_active_user(user_id):
+                query.edit_message_text(telegram_consts.ADDED_TO_VOLUNTEER_LIST)
             else:
-                query.edit_message_text(REMOVED_FROM_VOLUNTEERS)
+                query.edit_message_text(telegram_consts.REMOVED_FROM_VOLUNTEERS)
 
         return ConversationHandler.END
 
     @staticmethod
-    def get_location_keyboard():
+    def _get_location_keyboard() -> telegram.InlineKeyboardMarkup:
         """creates keyboard for choosing location"""
-        keyboard = [
+        return telegram.InlineKeyboardMarkup([
             [
-                InlineKeyboardButton(SOUTH, callback_data=SOUTH),
-                InlineKeyboardButton(CENTER, callback_data=CENTER),
+                telegram.InlineKeyboardButton(telegram_consts.SOUTH, callback_data=telegram_consts.SOUTH),
+                telegram.InlineKeyboardButton(telegram_consts.CENTER, callback_data=telegram_consts.CENTER),
             ],
-            [InlineKeyboardButton(NORTH, callback_data=NORTH)],
-        ]
-        return InlineKeyboardMarkup(keyboard)
+            [telegram.InlineKeyboardButton(telegram_consts.NORTH, callback_data=telegram_consts.NORTH)],
+        ])
 
     @staticmethod
-    def get_volunteer_request_keyboard():
+    def _get_volunteer_request_keyboard() -> telegram.InlineKeyboardMarkup:
         """creates keyboard for choosing kind of activity"""
-        return InlineKeyboardMarkup([[
-            InlineKeyboardButton(TO_VOLUNTEER, callback_data="volunteer"),
-            InlineKeyboardButton(TO_HELP_REQUEST, callback_data="help_request"),
+        return telegram.InlineKeyboardMarkup([[
+            telegram.InlineKeyboardButton(
+                telegram_consts.TO_VOLUNTEER,
+                callback_data=VolunteerRequestOption.VOLUNTEER.value,
+            ),
+            telegram.InlineKeyboardButton(
+                telegram_consts.TO_HELP_REQUEST,
+                callback_data=VolunteerRequestOption.HELP_REQUEST.value,
+            ),
         ]])
 
     @staticmethod
-    def get_confirm_edit_keyboard():
+    def _get_confirm_keyboard() -> telegram.InlineKeyboardMarkup:
         """creates keyboard for processing text of help request"""
-        return InlineKeyboardMarkup([[
-            InlineKeyboardButton(EDIT, callback_data="edit"),
-            InlineKeyboardButton(CONFIRM, callback_data="confirm"),
+        return telegram.InlineKeyboardMarkup([[
+            telegram.InlineKeyboardButton(telegram_consts.EDIT, callback_data=ConfirmOption.EDIT.value),
+            telegram.InlineKeyboardButton(telegram_consts.CONFIRM, callback_data=ConfirmOption.CONFIRM.value),
         ]])
 
     @staticmethod
-    def get_menu_keyboard():
+    def _get_menu_keyboard() -> telegram.InlineKeyboardMarkup:
         """creates keyboard for main menu"""
-        return InlineKeyboardMarkup([[
-            InlineKeyboardButton(NEW_REQUEST, callback_data="main_1"),
-            InlineKeyboardButton(MY_REQUEST, callback_data="main_2"),
-        ],
+        return telegram.InlineKeyboardMarkup([
             [
-                InlineKeyboardButton(ALL_REQUEST, callback_data="main_3"),
-                InlineKeyboardButton(OPEN_REQUEST_BY_LOCATION, callback_data="main_4"),
+                telegram.InlineKeyboardButton(
+                    telegram_consts.NEW_REQUEST,
+                    callback_data=MenuKeyboardOption.NEW_REQUEST.value,
+                ),
+                telegram.InlineKeyboardButton(
+                    telegram_consts.MY_REQUEST,
+                    callback_data=MenuKeyboardOption.MY_REQUEST.value,
+                ),
             ],
-            [InlineKeyboardButton(CHANGE_STATUS, callback_data="main_5")]
+            [
+                telegram.InlineKeyboardButton(
+                    telegram_consts.ALL_REQUEST,
+                    callback_data=MenuKeyboardOption.ALL_REQUEST.value,
+                ),
+                telegram.InlineKeyboardButton(
+                    telegram_consts.OPEN_REQUEST_BY_LOCATION,
+                    callback_data=MenuKeyboardOption.OPEN_REQUEST_BY_LOCATION.value,
+                ),
+            ],
+            [telegram.InlineKeyboardButton(
+                telegram_consts.CHANGE_STATUS,
+                callback_data=MenuKeyboardOption.CHANGE_STATUS.value,
+            )],
         ])
