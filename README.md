@@ -14,3 +14,4 @@ During the "Iron Swords" war, people looked for a way to ask for help and to fin
 - Python 3.11
 - Poetry
 - MONGODB
+- GIT
