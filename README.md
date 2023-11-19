@@ -1,41 +1,23 @@
-# 🚧 THE GOOD DEEDS
+# THE GOOD DEEDS Telegram Bot
 
-## The Team
-- 🚧 Participant 1 Christina Beletskaya
-- 🚧 Participant 2 Tal Matsil
-- 🚧 Participant 3 Haya Amir
-- 🚧 Participant 4 Shahd Mansour
+## The Team:
+- Participant 1 Christina Beletskaya
+- Participant 2 Tal Matsil
+- Participant 3 Haya Amir
 
-## About this bot
+### About this bot:
 
-🚧 The Good Deeds bot is a digital platform designed to enable acts of kindness and support within communities.
+During the "Iron Swords" war, people looked for a way to ask for help and to find those who could help them. Our telegram bot connects between those who want to volunteer and people who have help requests by location.
 
-🚧 YOU CAN ADD A t.me LINK TO THE BOT HERE
-
-🚧 ADD SCREENSHOTS/GIFS/SCREENCAST HERE (REFER TO MARKDOWN'S SYNTAX FOR HELP ON DISPLAYING IMAGES)
-
-🚧 ADD ANY OTHER NOTES REGARDING THE BOT
  
-## Instructions for Developers 
-### Prerequisites
+#### Technologies: 
 - Python 3.11
 - Poetry
-- 🚧 ADD ANY OTHER PREREQUISITE HERE (MONGODB?)
+- MONGODB
 
-### Setup
-- git clone this repository 
-- cd into the project directory
-- Install dependencies:
-    
-      poetry install
+##### Future Features:
+- Add more precise location options.
+- Translate the bot into other languages such as English, Arabic, and Russian.
+- Add an option to close a help request which was opened by the user and is no longer relevant.
+- Add animations like throwing confetti to those who volunteered.
 
-
-- Get an API Token for a bot via the [BotFather](https://telegram.me/BotFather)
-- Create a `bot_settings.py` file with your bot token:
-
-      BOT_TOKEN = 'xxxxxxx'
-
-### Running the bot        
-- Run the bot:
-
-      poetry run python bot.py
